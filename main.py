@@ -37,26 +37,27 @@ class EyeTracker(QtWidgets.QMainWindow, Ui_MainWindow):
         self.camera = cv2.VideoCapture(watch_path)
         while self.monitoring:
             ret, frame = self.camera.read()
+            frame = imutils.resize(frame, width=640)
             cv2.imshow("frame", frame)
             cv2.waitKey(1)
-            frame = imutils.resize(frame)
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             if not ret:
                 print("failed to grab frame")
-                return
+                continue
             else:
-                # 在灰度图上检测面部
-                rects = detector(gray, 0)
-
-                ear = self.monitor_eyes(frame, gray, rects)
-                self.judge_eyes(ear)
+                ear = self.monitor_eyes(frame, gray)
+                if ear is not None:
+                  self.judge_eyes(ear)
+                else:
+                    continue
 
     def stop_tracking(self):
         # 关闭摄像头
         self.camera.release()
         cv2.destroyAllWindows()
         self.monitoring = False
+        self.watch.clear()
 
     def eye_aspect_ratio(self, eye):
         # 计算眼睛纵横比
@@ -66,54 +67,64 @@ class EyeTracker(QtWidgets.QMainWindow, Ui_MainWindow):
         ear = (A + B) / (2.0 * C)
         return ear
 
-    def monitor_eyes(self,frame, gray, rects):
-        # 监测眼睛
-        for rect in rects:
-            # 获取面部关键点坐标
-            shape = predictor(gray, rect)
-            shape = face_utils.shape_to_np(shape)
+    def monitor_eyes(self,frame, gray):
+        # 在灰度图上检测面部
+        rects = detector(gray, 0)
+        print("Number of faces detected: ", len(rects))
+        if len(rects) > 0:
+            # 监测眼睛
+            for rect in rects:
+                # 获取面部关键点坐标
+                shape = predictor(gray, rect)
+                shape = face_utils.shape_to_np(shape)
 
-            # 提取左右眼区域
-            left_eye = shape[self.lStart:self.lEnd]
-            right_eye = shape[self.rStart:self.rEnd]
+                # 提取左右眼区域
+                left_eye = shape[self.lStart:self.lEnd]
+                right_eye = shape[self.rStart:self.rEnd]
 
-            # 计算左右眼的纵横比
-            left_ear = self.eye_aspect_ratio(left_eye)
-            right_ear = self.eye_aspect_ratio(right_eye)
+                # 计算左右眼的纵横比
+                left_ear = self.eye_aspect_ratio(left_eye)
+                right_ear = self.eye_aspect_ratio(right_eye)
+                print("left eye aspect ratio: ", left_ear)
+                print("right eye aspect ratio: ", right_ear)
 
-            # 计算平均纵横比
-            ear = (left_ear + right_ear) / 2.0
+                # 计算平均纵横比
+                ear = (left_ear + right_ear) / 2.0
+                print("average eye aspect ratio: ", ear)
 
-            # 绘制眼睛区域的凸包
-            left_eye_hull = cv2.convexHull(left_eye)
-            right_eye_hull = cv2.convexHull(right_eye)
-            # 绘制眼睛凸包
-            cv2.drawContours(frame, [left_eye_hull], -1, (0, 255, 0), 1)
-            cv2.drawContours(frame, [right_eye_hull], -1, (0, 255, 0), 1)
+                # 绘制眼睛区域的凸包
+                left_eye_hull = cv2.convexHull(left_eye)
+                right_eye_hull = cv2.convexHull(right_eye)
+                # 在图像上绘制眼睛区域的凸包
+                cv2.drawContours(frame, [left_eye_hull], -1, (0, 255, 0), 1)
+                cv2.drawContours(frame, [right_eye_hull], -1, (0, 255, 0), 1)
 
-            # # 显示眼睛纵横比
-            # cv2.putText(frame, "Left EAR: {:.2f}".format(left_ear), (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
-            #             (0, 0, 255), 2)
-            # cv2.putText(frame, "Right EAR: {:.2f}".format(right_ear), (30, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
-            #             (0, 0, 255), 2)
-            # cv2.putText(frame, "Average EAR: {:.2f}".format(ear), (30, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
-            #             (0, 0, 255), 2)
+                # # 显示眼睛纵横比
+                # cv2.putText(frame, "Left EAR: {:.2f}".format(left_ear), (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
+                #             (0, 0, 255), 2)
+                # cv2.putText(frame, "Right EAR: {:.2f}".format(right_ear), (30, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
+                #             (0, 0, 255), 2)
+                # cv2.putText(frame, "Average EAR: {:.2f}".format(ear), (30, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
+                #             (0, 0, 255), 2)
 
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # 视频色彩转换回RGB，这样才是现实的颜色
-            frame = QtGui.QImage(frame.data, frame.shape[1], frame.shape[0],
-                                         int(frame.shape[1]) * 3,
-                                         QtGui.QImage.Format_RGB888)  # 把读取到的视频数据变成QImage形式
-            self.watch.setPixmap(QtGui.QPixmap.fromImage(frame))
-            cv2.waitKey(1)
-            return ear # 往显示视频的Label里 显示QImage
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # 视频色彩转换回RGB，这样才是现实的颜色
+                frame = QtGui.QImage(frame.data, frame.shape[1], frame.shape[0],
+                                             int(frame.shape[1]) * 3,
+                                             QtGui.QImage.Format_RGB888)  # 把读取到的视频数据变成QImage形式
+                self.watch.setPixmap(QtGui.QPixmap.fromImage(frame))
+                cv2.waitKey(1)
+                return ear # 往显示视频的Label里 显示QImage
 
-            # h, w, ch = frame.shape
-            # bytesPerLine = ch * w
-            # convertToQtFormat = QtGui.QImage(frame.data, w, h, bytesPerLine, QtGui.QImage.Format_RGB888)
-            # p = convertToQtFormat.scaled(640, 480, QtCore.Qt.KeepAspectRatio)
-            # # 将 QImage 显示在 QLabel 控件上
-            # self.watch.setPixmap(QtGui.QPixmap.fromImage(p))
-            # return ear  # 往显示视频的Label里 显示QImage
+                # h, w, ch = frame.shape
+                # bytesPerLine = ch * w
+                # convertToQtFormat = QtGui.QImage(frame.data, w, h, bytesPerLine, QtGui.QImage.Format_RGB888)
+                # p = convertToQtFormat.scaled(640, 480, QtCore.Qt.KeepAspectRatio)
+                # # 将 QImage 显示在 QLabel 控件上
+                # self.watch.setPixmap(QtGui.QPixmap.fromImage(p))
+                # return ear  # 往显示视频的Label里 显示QImage
+            else:
+                print("No face detected")
+                return None
 
     def judge_eyes(self, ear):
         # 眼睛纵横比阈值
@@ -134,7 +145,7 @@ class EyeTracker(QtWidgets.QMainWindow, Ui_MainWindow):
 
         # 眼睛睁开持续帧数计数器
         open_counter = 0
-        print("eye aspect ratio: ", ear)
+
 
         # 眼睛闭合判断
         if ear <= eve_ar_thresh:  # 判断眼睛纵横比是否小于阈值
