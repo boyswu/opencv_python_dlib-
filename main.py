@@ -2,7 +2,7 @@
 from playsound import playsound
 from scipy.spatial import distance as dist
 from UI import Ui_MainWindow
-from PyQt5 import QtWidgets, QtGui,QtCore
+from PyQt5 import QtWidgets, QtGui
 import dlib
 import cv2
 from imutils import face_utils
@@ -18,37 +18,53 @@ detector = dlib.get_frontal_face_detector()
 # 加载面部标志预测器
 predictor = dlib.shape_predictor(SHAPE_PREDICTOR_PATH)
 
+
 # 定义眼睛跟踪器类
 class EyeTracker(QtWidgets.QMainWindow, Ui_MainWindow):
     def __init__(self, parent=None):
         super(EyeTracker, self).__init__(parent)
+
         self.setupUi(self)
         self.start.clicked.connect(self.start_tracking)
         self.stop.clicked.connect(self.stop_tracking)
         (self.lStart, self.lEnd) = face_utils.FACIAL_LANDMARKS_IDXS['left_eye']
         (self.rStart, self.rEnd) = face_utils.FACIAL_LANDMARKS_IDXS['right_eye']
+        self.print_container = None  # 显示文本框
         self.camera = None  # 视频流对象
         self.monitoring = False  # 监测标志
 
     def start_tracking(self):
+        fps = 25.0  # 帧率
         self.monitoring = True
-        # self.camera = VideoStream(src=watch_path, usePiCamera=False).start()
+        # 初始化计数器和计时器
+        frame_count = 0
+        import time
+        start_time = time.time()  # 使用time.time()来获取初始时间戳
         # 打开摄像头
         self.camera = cv2.VideoCapture(watch_path)
         while self.monitoring:
             ret, frame = self.camera.read()
             frame = imutils.resize(frame, width=640)
-            cv2.imshow("frame", frame)
-            cv2.waitKey(1)
-
+            # 在每一帧的处理中增加帧计数器
+            frame_count += 1
+            # 在一定的时间间隔后计算帧率
+            if time.time() - start_time >= 1:  # 每秒计算一次
+                # 计算帧率
+                fps = frame_count / (time.time() - start_time)
+                # 重置计数器和计时器
+                frame_count = 0
+                start_time = time.time()  # 使用time.time()来获取新的时间戳
+                # 打印帧率
+                print("FPS:", fps)
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             if not ret:
-                print("failed to grab frame")
+                print("failed to gray frame")
                 continue
             else:
                 ear = self.monitor_eyes(frame, gray)
                 if ear is not None:
-                  self.judge_eyes(ear)
+                    self.judge_eyes(ear, fps)
+                    print("fps值: ", fps)
                 else:
                     continue
 
@@ -58,6 +74,7 @@ class EyeTracker(QtWidgets.QMainWindow, Ui_MainWindow):
         cv2.destroyAllWindows()
         self.monitoring = False
         self.watch.clear()
+        self.txt.clear()
 
     def eye_aspect_ratio(self, eye):
         # 计算眼睛纵横比
@@ -67,10 +84,13 @@ class EyeTracker(QtWidgets.QMainWindow, Ui_MainWindow):
         ear = (A + B) / (2.0 * C)
         return ear
 
-    def monitor_eyes(self,frame, gray):
+    def monitor_eyes(self, frame, gray):
         # 在灰度图上检测面部
         rects = detector(gray, 0)
-        print("Number of faces detected: ", len(rects))
+        print("检测到人脸数: ", len(rects))
+        self.print_container ="检测到人脸数: " + str(len(rects)) + "\n"
+        self.txt.setText(self.print_container)
+
         if len(rects) > 0:
             # 监测眼睛
             for rect in rects:
@@ -85,12 +105,15 @@ class EyeTracker(QtWidgets.QMainWindow, Ui_MainWindow):
                 # 计算左右眼的纵横比
                 left_ear = self.eye_aspect_ratio(left_eye)
                 right_ear = self.eye_aspect_ratio(right_eye)
-                print("left eye aspect ratio: ", left_ear)
-                print("right eye aspect ratio: ", right_ear)
 
                 # 计算平均纵横比
                 ear = (left_ear + right_ear) / 2.0
+                container = "左眼纵横比: {:.2f}, 右眼纵横比: {:.2f}, 平均纵横比: {:.2f}".format(left_ear, right_ear, ear)
+
+                self.print_container = str(self.print_container) + container + "\n"
+                self.txt.setText(self.print_container)
                 print("average eye aspect ratio: ", ear)
+
 
                 # 绘制眼睛区域的凸包
                 left_eye_hull = cv2.convexHull(left_eye)
@@ -99,21 +122,21 @@ class EyeTracker(QtWidgets.QMainWindow, Ui_MainWindow):
                 cv2.drawContours(frame, [left_eye_hull], -1, (0, 255, 0), 1)
                 cv2.drawContours(frame, [right_eye_hull], -1, (0, 255, 0), 1)
 
-                # # 显示眼睛纵横比
-                # cv2.putText(frame, "Left EAR: {:.2f}".format(left_ear), (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
-                #             (0, 0, 255), 2)
-                # cv2.putText(frame, "Right EAR: {:.2f}".format(right_ear), (30, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
-                #             (0, 0, 255), 2)
-                # cv2.putText(frame, "Average EAR: {:.2f}".format(ear), (30, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
-                #             (0, 0, 255), 2)
+                # 显示眼睛纵横比
+                cv2.putText(frame, "Left EAR: {:.2f}".format(left_ear), (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
+                            (0, 0, 255), 2)
+                cv2.putText(frame, "Right EAR: {:.2f}".format(right_ear), (30, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
+                            (0, 0, 255), 2)
+                cv2.putText(frame, "Average EAR: {:.2f}".format(ear), (30, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
+                            (0, 0, 255), 2)
 
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # 视频色彩转换回RGB，这样才是现实的颜色
                 frame = QtGui.QImage(frame.data, frame.shape[1], frame.shape[0],
-                                             int(frame.shape[1]) * 3,
-                                             QtGui.QImage.Format_RGB888)  # 把读取到的视频数据变成QImage形式
+                                     int(frame.shape[1]) * 3,
+                                     QtGui.QImage.Format_RGB888)  # 把读取到的视频数据变成QImage形式
                 self.watch.setPixmap(QtGui.QPixmap.fromImage(frame))
                 cv2.waitKey(1)
-                return ear # 往显示视频的Label里 显示QImage
+                return ear  # 往显示视频的Label里 显示QImage
 
                 # h, w, ch = frame.shape
                 # bytesPerLine = ch * w
@@ -123,53 +146,54 @@ class EyeTracker(QtWidgets.QMainWindow, Ui_MainWindow):
                 # self.watch.setPixmap(QtGui.QPixmap.fromImage(p))
                 # return ear  # 往显示视频的Label里 显示QImage
             else:
-                print("No face detected")
+                print("没有检测到人脸")
+                self.print_container = str(self.print_container) + "没有检测到人脸" + "\n"
+                self.txt.setText(self.print_container)
+
                 return None
 
-    def judge_eyes(self, ear):
+    def judge_eyes(self, ear, fps):
         # 眼睛纵横比阈值
-        eve_ar_thresh= 0.2
-        # # 眼睛长宽比阈值
-        # EYE_AR_CONSEC_FRAMES = 3
-        # # 眼睛闭合阈值
-        # EYE_AR_CLOSE_THRESH = 0.5
+        eve_ar_thresh = ear * 0.8
         # 眼睛睁开阈值
-        eve_ar_open_thresh = 0.3
+        eve_ar_open_thresh = ear + 0.1
         # 眼睛闭合持续帧数
-        eve_ar_close_frames = 5
+        eve_ar_close_frames = 150/fps
         # 眼睛睁开持续帧数
-        eve_ar_open_frames = 10
-
+        eve_ar_open_frames = 250/fps
         # 眼睛闭合持续帧数计数器
         close_counter = 0
-
         # 眼睛睁开持续帧数计数器
         open_counter = 0
-
-
         # 眼睛闭合判断
-        if ear <= eve_ar_thresh:  # 判断眼睛纵横比是否小于阈值
+        if ear >= eve_ar_thresh:  # 判断眼睛纵横比是否小于阈值
             close_counter += 1  # 递增闭合持续帧数计数器
             if close_counter >= eve_ar_close_frames:  # 如果持续帧数超过阈值
                 # 警报
                 playsound(ALARM_PATH)  # 播放警报音频
-                # close_counter = 0  # 重置闭合持续帧数计数器
-        else:
-            # close_counter = 0  # 如果眼睛并非闭合状态，则重置闭合持续帧数计数器
-            pass
+                self.print_container = str(self.print_container)+"警报！" + "\n" # 显示警报信息
 
+                close_counter = 0  # 重置闭合持续帧数计数器
+        else:
+            close_counter = 0  # 如果眼睛并非闭合状态，则重置闭合持续帧数计数器
         # 眼睛睁开判断
-        if ear >= eve_ar_open_thresh:  # 判断眼睛纵横比是否大于阈值
+        if ear <= eve_ar_open_thresh:  # 判断眼睛纵横比是否大于阈值
             open_counter += 1  # 递增睁开持续帧数计数器
             if open_counter >= eve_ar_open_frames:  # 如果持续帧数超过阈值
                 # 警报
                 playsound(ALARM_PATH)  # 播放警报音频
-                # open_counter = 0  # 重置睁开持续帧数计数器
+                self.print_container = str(self.print_container)+"警报！" + "\n" # 显示警报信息
+                open_counter = 0  # 重置睁开持续帧数计数器
         else:
-            # open_counter = 0  # 如果眼睛并非睁开状态，则重置睁开持续帧数计数器
-            pass
+            open_counter = 0  # 如果眼睛并非睁开状态，则重置睁开持续帧数计数器
+
+        print("close_counter: ", close_counter)
+        print("open_counter: ", open_counter)
+
+
 if __name__ == "__main__":
     import sys
+
     app = QtWidgets.QApplication(sys.argv)
     MainWindow = EyeTracker()
     MainWindow.show()
