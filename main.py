@@ -1,4 +1,4 @@
-
+import time
 from playsound import playsound
 from scipy.spatial import distance as dist
 from UI import Ui_MainWindow
@@ -24,27 +24,33 @@ class EyeTracker(QtWidgets.QMainWindow, Ui_MainWindow):
     def __init__(self, parent=None):
         super(EyeTracker, self).__init__(parent)
 
+        self.close_counter = None
+        self.open_counter = None
         self.setupUi(self)
         self.start.clicked.connect(self.start_tracking)
         self.stop.clicked.connect(self.stop_tracking)
+        self.save_img.clicked.connect(self.save_image)
         (self.lStart, self.lEnd) = face_utils.FACIAL_LANDMARKS_IDXS['left_eye']
         (self.rStart, self.rEnd) = face_utils.FACIAL_LANDMARKS_IDXS['right_eye']
         self.print_container = None  # 显示文本框
         self.camera = None  # 视频流对象
         self.monitoring = False  # 监测标志
+        self.ear = 0.25 # 眼睛纵横比
 
     def start_tracking(self):
-        fps = 25.0  # 帧率
         self.monitoring = True
+
+        fps = 25.0  # 帧率
         # 初始化计数器和计时器
         frame_count = 0
-        import time
         start_time = time.time()  # 使用time.time()来获取初始时间戳
+
         # 打开摄像头
         self.camera = cv2.VideoCapture(watch_path)
         while self.monitoring:
             ret, frame = self.camera.read()
             frame = imutils.resize(frame, width=640)
+
             # 在每一帧的处理中增加帧计数器
             frame_count += 1
             # 在一定的时间间隔后计算帧率
@@ -67,6 +73,7 @@ class EyeTracker(QtWidgets.QMainWindow, Ui_MainWindow):
                     print("fps值: ", fps)
                 else:
                     continue
+        return None
 
     def stop_tracking(self):
         # 关闭摄像头
@@ -84,11 +91,27 @@ class EyeTracker(QtWidgets.QMainWindow, Ui_MainWindow):
         ear = (A + B) / (2.0 * C)
         return ear
 
+    def save_image(self):
+        try:
+            self.camera = cv2.VideoCapture(watch_path)
+            ret, frame = self.camera.read()
+            cv2.imwrite('frame.jpg', frame)
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # 视频色彩转换回RGB，这样才是现实的颜色
+            frame = QtGui.QImage(frame.data, frame.shape[1], frame.shape[0],
+                                 int(frame.shape[1]) * 3,
+                                 QtGui.QImage.Format_RGB888)  # 把读取到的视频数据变成QImage形式
+            self.watch.setPixmap(QtGui.QPixmap.fromImage(frame))
+            self.camera.release()
+
+        except:
+            self.camera.release()
+            self.save_image()
+
     def monitor_eyes(self, frame, gray):
         # 在灰度图上检测面部
         rects = detector(gray, 0)
         print("检测到人脸数: ", len(rects))
-        self.print_container ="检测到人脸数: " + str(len(rects)) + "\n"
+        self.print_container = "检测到人脸数: " + str(len(rects)) + "\n"
         self.txt.setText(self.print_container)
 
         if len(rects) > 0:
@@ -105,15 +128,14 @@ class EyeTracker(QtWidgets.QMainWindow, Ui_MainWindow):
                 # 计算左右眼的纵横比
                 left_ear = self.eye_aspect_ratio(left_eye)
                 right_ear = self.eye_aspect_ratio(right_eye)
-
                 # 计算平均纵横比
                 ear = (left_ear + right_ear) / 2.0
-                container = "左眼纵横比: {:.2f}, 右眼纵横比: {:.2f}, 平均纵横比: {:.2f}".format(left_ear, right_ear, ear)
 
+                container = "左眼纵横比: {:.2f}, 右眼纵横比: {:.2f}, 平均纵横比: {:.2f}".format(left_ear, right_ear,
+                                                                                                ear)
                 self.print_container = str(self.print_container) + container + "\n"
                 self.txt.setText(self.print_container)
                 print("average eye aspect ratio: ", ear)
-
 
                 # 绘制眼睛区域的凸包
                 left_eye_hull = cv2.convexHull(left_eye)
@@ -154,41 +176,38 @@ class EyeTracker(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def judge_eyes(self, ear, fps):
         # 眼睛纵横比阈值
-        eve_ar_thresh = ear * 0.8
+        eve_ar_thresh = self.ear * 0.8
         # 眼睛睁开阈值
-        eve_ar_open_thresh = ear + 0.1
+        eve_ar_open_thresh = self.ear + 0.1
         # 眼睛闭合持续帧数
-        eve_ar_close_frames = 150/fps
+        eve_ar_close_frames = 150 / fps
         # 眼睛睁开持续帧数
-        eve_ar_open_frames = 250/fps
-        # 眼睛闭合持续帧数计数器
-        close_counter = 0
-        # 眼睛睁开持续帧数计数器
-        open_counter = 0
+        eve_ar_open_frames = 250 / fps
+
         # 眼睛闭合判断
-        if ear >= eve_ar_thresh:  # 判断眼睛纵横比是否小于阈值
-            close_counter += 1  # 递增闭合持续帧数计数器
-            if close_counter >= eve_ar_close_frames:  # 如果持续帧数超过阈值
+        if ear <= eve_ar_thresh:  # 判断眼睛纵横比是否小于阈值
+            self.close_counter += 1  # 递增闭合持续帧数计数器
+            if self.close_counter >= eve_ar_close_frames:  # 如果持续帧数超过阈值
                 # 警报
                 playsound(ALARM_PATH)  # 播放警报音频
-                self.print_container = str(self.print_container)+"警报！" + "\n" # 显示警报信息
+                self.print_container = str(self.print_container) + "警报！" + "\n"  # 显示警报信息
 
-                close_counter = 0  # 重置闭合持续帧数计数器
+                self.close_counter = 0  # 重置闭合持续帧数计数器
         else:
-            close_counter = 0  # 如果眼睛并非闭合状态，则重置闭合持续帧数计数器
+            self.close_counter = 0  # 如果眼睛并非闭合状态，则重置闭合持续帧数计数器
         # 眼睛睁开判断
-        if ear <= eve_ar_open_thresh:  # 判断眼睛纵横比是否大于阈值
-            open_counter += 1  # 递增睁开持续帧数计数器
-            if open_counter >= eve_ar_open_frames:  # 如果持续帧数超过阈值
+        if ear >= eve_ar_open_thresh:  # 判断眼睛纵横比是否大于阈值
+            self.open_counter += 1  # 递增睁开持续帧数计数器
+            if self.open_counter >= eve_ar_open_frames:  # 如果持续帧数超过阈值
                 # 警报
                 playsound(ALARM_PATH)  # 播放警报音频
-                self.print_container = str(self.print_container)+"警报！" + "\n" # 显示警报信息
-                open_counter = 0  # 重置睁开持续帧数计数器
+                self.print_container = str(self.print_container) + "警报！" + "\n"  # 显示警报信息
+                self.open_counter = 0  # 重置睁开持续帧数计数器
         else:
-            open_counter = 0  # 如果眼睛并非睁开状态，则重置睁开持续帧数计数器
+            self.open_counter = 0  # 如果眼睛并非睁开状态，则重置睁开持续帧数计数器
 
-        print("close_counter: ", close_counter)
-        print("open_counter: ", open_counter)
+        print("close_counter: ", self.close_counter)
+        print("open_counter: ", self.open_counter)
 
 
 if __name__ == "__main__":
