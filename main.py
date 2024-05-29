@@ -37,7 +37,7 @@ class EyeTracker(QtWidgets.QMainWindow, Ui_MainWindow):
         self.print_container = None  # 显示文本框
         self.camera = None  # 视频流对象
         self.monitoring = False  # 监测标志
-        self.ear = None # 眼睛纵横比
+        self.ear =0.25 # 眼睛纵横比
 
     def start_tracking(self):
         self.monitoring = True
@@ -211,7 +211,7 @@ class EyeTracker(QtWidgets.QMainWindow, Ui_MainWindow):
         # 眼睛闭合持续帧数
         eve_ar_close_frames = 50
         # 眼睛睁开持续帧数
-        eve_ar_open_frames = 80
+        eve_ar_open_frames = 100
 
         # 眼睛微闭判断
         if ear <= eve_ar_thresh:  # 判断眼睛纵横比是否小于阈值
