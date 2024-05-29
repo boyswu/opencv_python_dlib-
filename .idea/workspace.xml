@@ -4,10 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="b8c7682a-1760-435a-8fab-28fdf03c3c83" name="更改" comment="第二次提交">
+    <list default="true" id="b8c7682a-1760-435a-8fab-28fdf03c3c83" name="更改" comment="第三次提交">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/UI.py" beforeDir="false" afterPath="$PROJECT_DIR$/UI.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/UI.ui" beforeDir="false" afterPath="$PROJECT_DIR$/UI.ui" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -42,7 +40,7 @@
     "Python.1.executor": "Debug",
     "Python.UI.executor": "Run",
     "Python.detect.executor": "Run",
-    "Python.main.executor": "Run",
+    "Python.main.executor": "Debug",
     "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "ignore.virus.scanning.warn.message": "true",
@@ -121,7 +119,15 @@
       <option name="project" value="LOCAL" />
       <updated>1716905320021</updated>
     </task>
-    <option name="localTasksCounter" value="8" />
+    <task id="LOCAL-00008" summary="第三次提交">
+      <option name="closed" value="true" />
+      <created>1716970029330</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1716970029330</updated>
+    </task>
+    <option name="localTasksCounter" value="9" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -138,7 +144,8 @@
   <component name="VcsManagerConfiguration">
     <MESSAGE value="第一次提交" />
     <MESSAGE value="第二次提交" />
-    <option name="LAST_COMMIT_MESSAGE" value="第二次提交" />
+    <MESSAGE value="第三次提交" />
+    <option name="LAST_COMMIT_MESSAGE" value="第三次提交" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
