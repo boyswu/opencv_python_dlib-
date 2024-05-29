@@ -51,29 +51,32 @@ class EyeTracker(QtWidgets.QMainWindow, Ui_MainWindow):
         self.camera = cv2.VideoCapture(watch_path)
         while self.monitoring:
             ret, frame = self.camera.read()
-
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            # 在每一帧的处理中增加帧计数器
-            frame_count += 1
-            # 在一定的时间间隔后计算帧率
-            if time.time() - start_time >= 1:  # 每秒计算一次
-                # 计算帧率
-                fps = frame_count / (time.time() - start_time)
-                # 重置计数器和计时器
-                frame_count = 0
-                start_time = time.time()  # 使用time.time()来获取新的时间戳
-                # 打印帧率
-                # print("FPS:", fps)
-            if not ret:
-                print("failed to gray frame")
-                continue
+            if frame is None:
+                print("failed to read frame")
+                break    # 解决开始按钮点击保存按钮时卡死的bug
             else:
-                ear = self.monitor_eyes(frame, gray)
-                if ear is not None:
-                    self.judge_eyes(ear, fps)
-                    # print("fps值: ", fps)
-                else:
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                # 在每一帧的处理中增加帧计数器
+                frame_count += 1
+                # 在一定的时间间隔后计算帧率
+                if time.time() - start_time >= 1:  # 每秒计算一次
+                    # 计算帧率
+                    fps = frame_count / (time.time() - start_time)
+                    # 重置计数器和计时器
+                    frame_count = 0
+                    start_time = time.time()  # 使用time.time()来获取新的时间戳
+                    # 打印帧率
+                    # print("FPS:", fps)
+                if not ret:
+                    print("failed to gray frame")
                     continue
+                else:
+                    ear = self.monitor_eyes(frame, gray)
+                    if ear is not None:
+                        self.judge_eyes(ear, fps)
+                        # print("fps值: ", fps)
+                    else:
+                        continue
         return None
 
     def stop_tracking(self):
@@ -201,17 +204,28 @@ class EyeTracker(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def judge_eyes(self, ear, fps):
         # 眼睛纵横比阈值
-        eve_ar_thresh = self.ear * 0.8 # 眼睛闭合阈值
+        eve_ar_thresh = self.ear * 0.7 # 眼睛闭合阈值
+        self.print_container = str(self.print_container) + "眼睛纵横比阈值eve_ar_thresh: " + str(eve_ar_thresh) + "\n"
+        self.txt.setText(self.print_container)
         # 眼睛睁开阈值
         eve_ar_open_thresh = self.ear *0.8
-        # # 眼睛闭合持续帧数
-        # eve_ar_close_frames = 250 / fps
-        # # 眼睛睁开持续帧数
-        # eve_ar_open_frames = 250 / fps
+        self.print_container = str(self.print_container) + "眼睛睁开阈值eve_ar_open_thresh: " + str(eve_ar_open_thresh) + "\n"
+        self.txt.setText(self.print_container)
         # 眼睛闭合持续帧数
-        eve_ar_close_frames = 50
+        eve_ar_close_frames = 1500 / fps
+        print("eve_ar_close_frames: ", eve_ar_close_frames)
+        self.print_container = str(self.print_container) + "眼睛闭合持续帧数eve_ar_close_frames: " + str(eve_ar_close_frames) + "\n"
+        self.txt.setText(self.print_container)
         # 眼睛睁开持续帧数
-        eve_ar_open_frames = 100
+        # 眼睛睁开持续帧数
+        eve_ar_open_frames = 2000 / fps
+        print("eve_ar_open_frames: ", eve_ar_open_frames)
+        self.print_container = str(self.print_container) + "眼睛睁开持续帧数eve_ar_open_frames: " + str(eve_ar_open_frames) + "\n"
+        self.txt.setText(self.print_container)
+        # # 眼睛闭合持续帧数
+        # eve_ar_close_frames = 50
+        # # 眼睛睁开持续帧数
+        # eve_ar_open_frames = 100
 
         # 眼睛微闭判断
         if ear <= eve_ar_thresh:  # 判断眼睛纵横比是否小于阈值
@@ -220,8 +234,10 @@ class EyeTracker(QtWidgets.QMainWindow, Ui_MainWindow):
                 pygame.mixer.init()
                 pygame.mixer.music.load(ALARM_PATH)
                 print("闭眼！",ear)
-                pygame.mixer.music.play()
                 self.print_container = str(self.print_container) + "警报！" + "\n"  # 显示警报信息
+                self.txt.setText(self.print_container)
+                pygame.mixer.music.play()
+
 
                 self.close_counter = 0  # 重置闭合持续帧数计数器
         else:
